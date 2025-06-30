@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <title>Stocks List</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- DataTables CSS -->
+  <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <div class="container-fluid mt-4">
+    <h1>Stocks 一覧</h1>
+    <form action="/analyze-all" method="POST" onsubmit="showLoading()">
+      <button type="submit">全銘柄の分析を実行</button>
+    </form>
+    <form action="/analyze-stale" method="POST" onsubmit="return confirm('未更新・価格なしの銘柄のみを再分析します。よろしいですか？')">
+      <button type="submit" class="btn btn-warning">再分析（未更新のみ）</button>
+
+    </form>
+
+    <div id="loading" style="display:none;">
+      🔄 全銘柄を分析中です…しばらくお待ちください。
+    </div>
+
+    <script>
+      function showLoading() {
+        document.getElementById("loading").style.display = "block";
+      }
+    </script>
+    <div class="table-responsive">
+      <table id="stockTable" class="table table-striped table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>33業種名</th>
+            <th>17業種名</th>
+            <th>銘柄名</th>
+            <th>コード</th>
+            <th>RSI</th>
+            <th>価格</th>
+            <th>価格日</th>
+            <th>業績伸び率</th>
+            <th>前回権利確定月</th>
+            <th>配当利回り</th>
+            <th>操作</th>
+            <th>更新日時</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% stocks.forEach(stock=> { %>
+          <tr>
+            <td>
+              <%= stock.cat_33_name %>
+            </td>
+            <td>
+              <%= stock.cat_17_name %>
+            </td>
+            <td>
+              <%= stock.name %>
+            </td>
+            <td>
+              <%= stock.code %>
+            </td>
+            <td data-order="<%= stock.rsi %>">
+              <%= stock.rsi %>
+            </td>
+            <td data-order="<%= stock.price %>">
+              <%= stock.price %>
+            </td>
+            <td><%= stock.price_date %></td>
+            <%  const rev = stock.rev_q1 ?? stock.rev_q2;
+                const prev = stock.prev_rev_q1;
+                const growthRate = (rev - prev) / prev;
+                const growthText = (growthRate > 0 ? '業+' : '業') + (growthRate * 100).toFixed(2);
+            %>
+            <td data-order="<%= growthRate %>">
+              <%= growthText %>
+            </td>
+
+            <td>
+              <%= (stock.last_div_date ? stock.last_div_date.substring(5, 7) : '—' ) + '月' %>
+            </td>
+            <%  function padDividend(yieldValue) {
+                  const fixed = yieldValue.toFixed(3);           // 例: "9.123"
+                  const [intPart, decimalPart] = fixed.split('.'); 
+                  const paddedInt = intPart.padStart(3, '0');    // "9" → "09"
+                  return `${paddedInt}.${decimalPart}％`;
+                  } %>
+            <td>
+              <%= stock.dividend_yield != null ? padDividend(stock.dividend_yield) : '—' %>
+            </td>
+
+            <td>
+              <!-- 詳細ボタン -->
+              <a href="/stocks/<%= stock.id %>" class="btn btn-sm btn-primary">
+                詳細
+              </a>
+              <!-- 分析実行ボタン -->
+              <button class="btn btn-sm btn-success" onclick="runAnalysis('<%= stock.code %>')">
+                📊 分析実行
+              </button>
+              <a href="https://finance.yahoo.co.jp/quote/<%= stock.code %>" target="_blank" class="btn btn-sm btn-outline-secondary" rel="noopener"> <i class="bi bi-box-arrow-up-right"></i> Yahoo!</a>
+            </td>
+            <td>
+              <%= moment(stock.updatedAt).format('YYYY-MM-DD HH:mm') %>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- runAnalysis 関数定義 -->
+  <script>
+    function runAnalysis(code) {
+      fetch(`/run-python?code=${encodeURIComponent(code)}`)
+        .then(res => res.text())
+        .then(msg => alert(msg))
+        .catch(err => alert("エラー：" + err));
+    }
+  </script>
+
+  <!-- jQuery -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <!-- DataTables JS -->
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+  <!-- Bootstrap Bundle JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js">
+  </script>
+
+  <script>
+    $(document).ready(function() {
+      $('#stockTable').DataTable({
+        scrollX: true,
+        language: {
+          url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ja.json'
+        },
+        pageLength: 25,
+        lengthMenu: [5, 10, 25, 50, 100],
+        ordering: true,
+        searching: true,
+        order: [
+          [11, 'desc']
+        ],
+        columnDefs: [
+          // 操作列（5列目＝index4）はソートさせない
+          {
+            orderable: false,
+            targets: 10
+          }
+        ]
+      });
+    });
+  </script>
+
+</body>
+
+</html>

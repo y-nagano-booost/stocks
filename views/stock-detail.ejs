@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= stock.name || '銘柄' %>（<%= stock.code || 'コード未指定' %>）</title>
+  <!-- Chart.js やその他ライブラリ -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.1.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.1"></script>
+  <style>
+    /* 簡単なスタイル（お好みで調整） */
+    #dateControls {
+      margin-bottom: 1em;
+    }
+
+    #dateControls label {
+      margin-right: 0.5em;
+    }
+
+    #dateControls input {
+      margin-right: 1em;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 銘柄情報と分析実行ボタン -->
+  <h1><%= stock.name || '銘柄' %>（<%= stock.code || 'コード未指定' %>）</h1>
+  <button onclick="runAnalysis('<%= stock.code %>')">📊 分析実行</button>
+
+  <script>
+    function runAnalysis(code) {
+      fetch(`/run-python?code=${encodeURIComponent(code)}`)
+        .then(res => res.text())
+        .then(msg => alert(msg))
+        .catch(err => alert("エラー：" + err));
+    }
+  </script>
+
+  <!-- フロントエンドで表示期間を制御するための日付入力フォーム -->
+  <div id="dateControls">
+    <label for="startDate">開始日:</label>
+    <input type="date" id="startDate" name="startDate">
+    <label for="endDate">終了日:</label>
+    <input type="date" id="endDate" name="endDate">
+    <button id="updateChartBtn">更新</button>
+  </div>
+
+  <!-- グラフ用キャンバス -->
+  <canvas id="lineChart" width="900" height="300"></canvas>
+  <canvas id="rsiChart" width="900" height="200"></canvas>
+  <canvas id="quarterChart" width="800" height="400"></canvas>
+
+  <script>
+    // サーバー側から JSON 化した全期間のデータ（ohlcData）を取得
+    const rawData = <%- JSON.stringify(ohlcData || []) %>;
+
+    // グローバルに Chart インスタンスを保持
+    let lineChartInstance = null;
+    let rsiChartInstance = null;
+
+    // 指定された開始日、終了日に基づいてデータをフィルタリングする関数
+    function filterDataByDate(start, end) {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      return rawData.filter(r => {
+        const d = new Date(r.date);
+        return d >= startDate && d <= endDate;
+      });
+    }
+
+    // charts を作成・更新する関数
+    function createCharts(filteredData) {
+      // 整形：各系列をデータセット化
+      const close = filteredData.map(r => ({
+        x: new Date(r.date),
+        y: parseFloat(r.close)
+      }));
+      const ma5 = filteredData.map(r => ({
+        x: new Date(r.date),
+        y: parseFloat(r.ma5)
+      }));
+      const ma25 = filteredData.map(r => ({
+        x: new Date(r.date),
+        y: parseFloat(r.ma25)
+      }));
+      const bbUpper = filteredData.map(r => ({
+        x: new Date(r.date),
+        y: parseFloat(r.bb_upper)
+      }));
+      const bbLower = filteredData.map(r => ({
+        x: new Date(r.date),
+        y: parseFloat(r.bb_lower)
+      }));
+
+      const rsi = filteredData
+        .filter(r => r.rsi !== null && r.rsi !== undefined)
+        .map(r => ({
+          x: new Date(r.date),
+          y: Number(r.rsi)
+        }));
+
+      // 既存のチャートがあれば破棄
+      if (lineChartInstance) lineChartInstance.destroy();
+      if (rsiChartInstance) rsiChartInstance.destroy();
+
+      // Line Chart（ローソク足チャート＋移動平均、BB）を生成
+      const lineCtx = document.getElementById('lineChart').getContext('2d');
+      lineChartInstance = new Chart(lineCtx, {
+        type: 'line',
+        data: {
+          datasets: [{
+              label: 'Close',
+              data: close,
+              borderColor: 'black',
+              pointRadius: 0
+            },
+            {
+              label: 'MA5',
+              data: ma5,
+              borderColor: 'blue',
+              pointRadius: 0
+            },
+            {
+              label: 'MA25',
+              data: ma25,
+              borderColor: 'green',
+              pointRadius: 0
+            },
+            {
+              label: 'BB Upper',
+              data: bbUpper,
+              borderColor: 'red',
+              borderDash: [5, 5],
+              pointRadius: 0
+            },
+            {
+              label: 'BB Lower',
+              data: bbLower,
+              borderColor: 'red',
+              borderDash: [5, 5],
+              pointRadius: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day'
+              },
+              title: {
+                display: true,
+                text: '日付'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: '価格'
+              }
+            }
+          }
+        }
+      });
+
+      // RSI Chart を生成
+      const rsiCtx = document.getElementById('rsiChart').getContext('2d');
+      rsiChartInstance = new Chart(rsiCtx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'RSI (14)',
+            data: rsi,
+            borderColor: '#ff9800',
+            pointRadius: 0,
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              type: 'time',
+              time: {
+                unit: 'day'
+              },
+              title: {
+                display: true,
+                text: '日付'
+              }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'RSI'
+              },
+              min: 0,
+              max: 100,
+              ticks: {
+                stepSize: 20
+              }
+            }
+          },
+          plugins: {
+            annotation: {
+              annotations: {
+                overbought: {
+                  type: 'line',
+                  yMin: 70,
+                  yMax: 70,
+                  borderColor: 'red',
+                  borderDash: [5, 5],
+                  label: {
+                    enabled: true,
+                    content: '買われ過ぎ'
+                  }
+                },
+                oversold: {
+                  type: 'line',
+                  yMin: 30,
+                  yMax: 30,
+                  borderColor: 'green',
+                  borderDash: [5, 5],
+                  label: {
+                    enabled: true,
+                    content: '売られ過ぎ'
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // 初期表示用：デフォルトは過去30日間
+    const today = new Date().toISOString().split('T')[0];
+    const threemonthAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+      .toISOString().split('T')[0];
+    document.getElementById('startDate').value = threemonthAgo;
+    document.getElementById('endDate').value = today;
+
+    // 初期チャート描画
+    const initialFilteredData = filterDataByDate(threemonthAgo, today);
+    createCharts(initialFilteredData);
+
+    // 日付入力フォームの更新ボタン押下時にチャートを再描画
+    document.getElementById('updateChartBtn').addEventListener('click', () => {
+      const startVal = document.getElementById('startDate').value;
+      const endVal = document.getElementById('endDate').value;
+      const filteredData = filterDataByDate(startVal, endVal);
+      createCharts(filteredData);
+    });
+
+    // EJS で挿入された４四半期分の数値
+    const rev = [
+      <%= stock.rev_q1 !== null ? stock.rev_q1 : null %>,
+      <%= stock.rev_q2 !== null ? stock.rev_q2 : null %>,
+      <%= stock.rev_q3 !== null ? stock.rev_q3 : null %>,
+      <%= stock.rev_q4 !== null ? stock.rev_q4 : null %>
+    ];
+    const prev_rev = [
+      <%= stock.prev_rev_q1   !== null ? stock.prev_rev_q1   : 'null' %>,
+      <%= stock.prev_rev_q2   !== null ? stock.prev_rev_q2   : 'null' %>,
+      <%= stock.prev_rev_q3   !== null ? stock.prev_rev_q3   : 'null' %>,
+      <%= stock.prev_rev_q4   !== null ? stock.prev_rev_q4   : 'null' %>
+    ];
+
+    // ラベルは「直近」「1期前」「2期前」「3期前」
+    const labels = ['直近', '1期前', '2期前', '3期前'];
+
+    // Chart.js で描画
+    new Chart(document.getElementById('quarterChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+            label: '当年売上高 (Total Revenue)',
+            data: rev,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          },
+          {
+            label: '前年売上高 (Total Revenue)',
+            data: prev_rev,
+            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: '四半期'
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: '金額'
+            },
+            beginAtZero: true
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = ctx.parsed.y;
+                return v != null ? v.toLocaleString() : 'データなし';
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+
+</html>

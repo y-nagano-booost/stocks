@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title || '株価チャート' %></title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <!-- オフキャンバス開閉ボタン -->
+  <nav class="navbar bg-light p-2">
+    <div class="container-fluid">
+      <button class="btn btn-outline-secondary" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar">
+        ☰ メニュー
+      </button>
+      <span class="navbar-text ms-3">
+        <%= title || '株価アプリ' %>
+      </span>
+    </div>
+  </nav>
+
+  <!-- 左サイドバー（オフキャンバス） -->
+  <div class="offcanvas offcanvas-start" tabindex="-1" id="sidebar">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">ナビゲーション</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <ul class="list-unstyled">
+        <li><a href="/stocks" class="nav-link">📈 銘柄一覧</a></li>
+        <li><a href="/" class="nav-link">🏠 ホーム</a></li>
+        <!-- 他のリンクもここに -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ -->
+  <div class="container-fluid mt-3 px-4">
+    <%- body %>
+  </div>
+
+  <!-- Bootstrap JavaScript（Popper含む） -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
