@@ -34,6 +34,10 @@
       <table id="stockTable" class="table table-striped table-hover">
         <thead class="table-light">
           <tr>
+            <th>★</th>
+            <th>購入価格</th>
+            <th>売却価格</th>
+            <th>保有株数</th>
             <th>33業種名</th>
             <th>17業種名</th>
             <th>銘柄名</th>
@@ -51,6 +55,20 @@
         <tbody>
           <% stocks.forEach(stock=> { %>
           <tr>
+            <td>
+              <button class="btn btn-sm" data-code="<%= stock.code %>" onclick="toggleFavorite(this)">
+                <%= stock.favorite ? '★' : '☆' %>
+              </button>
+            </td>
+            <td data-order="<%= stock.buy_price %>">
+              <input type="number" step="0.01" class="form-control form-control-sm" value="<%= stock.buy_price ?? '' %>" onchange="updateBuyPrice('<%= stock.code %>', this.value)">
+            </td>
+            <td data-order="<%= stock.sell_price %>">
+              <input type="number" step="0.01" class="form-control form-control-sm" value="<%= stock.sell_price ?? '' %>" onchange="updateSellPrice('<%= stock.code %>', this.value)">
+            </td>
+            <td data-order="<%= stock.shares %>">
+              <input type="number" step="100" class="form-control form-control-sm" value="<%= stock.shares ?? '' %>" onchange="updateShares('<%= stock.code %>', this.value)">
+            </td>
             <td>
               <%= stock.cat_33_name %>
             </td>
@@ -121,21 +139,112 @@
         .then(msg => alert(msg))
         .catch(err => alert("エラー：" + err));
     }
-  </script>
 
+    function updateBuyPrice(code, price) {
+      fetch('/update-buy-price', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code,
+            price
+          })
+        })
+        .then(res => res.json())
+        .then(msg => {
+          console.log(msg);
+        })
+        .catch(err => {
+          alert("更新エラー: " + err);
+        });
+    }
+
+    function updateSellPrice(code, price) {
+      fetch('/update-sell-price', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code,
+            price
+          })
+        })
+        .then(res => res.json())
+        .then(msg => {
+          console.log(msg);
+        })
+        .catch(err => {
+          alert("更新エラー: " + err);
+        });
+    }
+
+    function updateShares(code, price) {
+      fetch('/update-shares', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code,
+            price
+          })
+        })
+        .then(res => res.json())
+        .then(msg => {
+          console.log(msg);
+        })
+        .catch(err => {
+          alert("更新エラー: " + err);
+        });
+    }
+
+    function toggleFavorite(button) {
+      const code = button.dataset.code;
+      const isFavorite = button.textContent === '★';
+      const newFavorite = !isFavorite;
+
+      fetch('/update-favorite', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            code,
+            favorite: newFavorite
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          // 表示切り替え
+          button.textContent = newFavorite ? '★' : '☆';
+
+          // イベントハンドラ更新（次回の反転対応）
+          button.onclick = () => toggleFavorite(button);
+        })
+        .catch(err => alert("更新エラー: " + err));
+    }
+  </script>
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <!-- DataTables JS -->
   <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
   <!-- Bootstrap Bundle JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js">
   </script>
-
+  <!-- DataTables Buttons 拡張 -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+  <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
   <script>
     $(document).ready(function() {
       $('#stockTable').DataTable({
+        stateSave: true, // ← 検索やページ位置などを保存
         scrollX: true,
+        dom: 'Bfrtip', // ← ボタンを表示する領域指定
         language: {
           url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ja.json'
         },
@@ -152,7 +261,12 @@
             orderable: false,
             targets: 10
           }
-        ]
+        ],
+        buttons: [{
+          extend: 'colvis',
+          text: '表示列の選択',
+          collectionLayout: 'fixed two-column'
+        }],
       });
     });
   </script>

@@ -93,7 +93,11 @@ const Stock = sequelize.define('Stock', {
   prev_ni_q3: { type: DataTypes.BIGINT, allowNull: true },
   prev_ni_q4: { type: DataTypes.BIGINT, allowNull: true },
   cat_33_name:{ type: DataTypes.STRING, allowNull: false},
-  cat_17_name:{ type: DataTypes.STRING, allowNull: false}
+  cat_17_name:{ type: DataTypes.STRING, allowNull: false},
+  buy_price: { type: DataTypes.DECIMAL(20, 4), allowNull: true  },
+  sell_price: { type: DataTypes.DECIMAL(20, 4), allowNull: true  },
+  shares: { type: DataTypes.INTEGER, allowNull: true  },
+  favorite: { type: DataTypes.BOOLEAN, allowNull: true  }
 }, {
   tableName: 'stocks',   // 実際のテーブル名に合わせる
   timestamps: true       // createdAt / updatedAt を自動管理

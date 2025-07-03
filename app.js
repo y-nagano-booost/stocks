@@ -119,6 +119,51 @@ app.get('/run-python', (req, res) => {
     res.send(`✅ 実行完了:\n${stdout}`);
   });
 });
+app.use(express.json()); // JSONボディの解析
+
+app.post('/update-buy-price', async (req, res) => {
+  const { code, price } = req.body;
+  if (!code || price == null) {
+    return res.status(400).json({ status: 'ERROR', message: 'codeとpriceは必須です' });
+  }
+  try {
+    const result = await Stock.update(
+      { buy_price: price },
+      { where: { code } }
+    );
+    res.json({ status: 'OK', updated: result });
+  } catch (err) {
+    console.error('[DB更新エラー]', err);
+    res.status(500).json({ status: 'ERROR', message: err.message });
+  }
+});
+app.post('/update-sell-price', async (req, res) => {
+  const { code, price } = req.body;
+  if (!code || price == null) {
+    return res.status(400).json({ status: 'ERROR', message: 'codeとpriceは必須です' });
+  }
+  try {
+    const result = await Stock.update(
+      { sell_price: price },
+      { where: { code } }
+    );
+    res.json({ status: 'OK', updated: result });
+  } catch (err) {
+    console.error('[DB更新エラー]', err);
+    res.status(500).json({ status: 'ERROR', message: err.message });
+  }
+});
+app.post('/update-favorite', async (req, res) => {
+  console.log("受信データ:", req.body);
+  const { code, favorite } = req.body;
+  try {
+    const result = await Stock.update({ favorite }, { where: { code } });
+    console.log("更新件数:", result[0]); // ← これ追加してみましょう
+  } catch (err) {
+    console.error('お気に入り更新エラー:', err);
+    res.status(500).json({ status: 'ERROR', message: err.message });
+  }
+});
 // サーバー起動
 app.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
