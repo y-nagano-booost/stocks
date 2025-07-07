@@ -69,6 +69,7 @@ app.post("/analyze-stale", async (req, res) => {
       if (err) console.error(`[${stock.code}] 失敗:`, stderr);
       else console.log(`[${stock.code}] 分析完了`);
     });
+    await delay(300); // 300ミリ秒ずつ間隔を空ける
   }
 
   res.redirect("/stocks");

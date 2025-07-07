@@ -13,13 +13,9 @@
 <body>
   <div class="container-fluid mt-4">
     <h1>Stocks 一覧</h1>
-    <form action="/analyze-all" method="POST" onsubmit="showLoading()">
-      <button type="submit">全銘柄の分析を実行</button>
-    </form>
-    <form action="/analyze-stale" method="POST" onsubmit="return confirm('未更新・価格なしの銘柄のみを再分析します。よろしいですか？')">
-      <button type="submit" class="btn btn-warning">再分析（未更新のみ）</button>
-
-    </form>
+    <button id="analyzeAllBtn">全銘柄の分析を実行</button>
+    <button id="analyzeStaleBtn" class="btn btn-warning">再分析（未更新のみ）</button>
+    <div id="loading" style="display:none;">分析中です...</div>
     <div class="form-check form-switch mb-2">
       <input class="form-check-input" type="checkbox" id="favoriteFilterSwitch">
       <label class="form-check-label" for="favoriteFilterSwitch">お気に入りのみ表示</label>
@@ -134,6 +130,47 @@
 
   <!-- runAnalysis 関数定義 -->
   <script>
+    const loading = document.getElementById('loading');
+
+    document.getElementById('analyzeAllBtn').addEventListener('click', async () => {
+      if (!confirm('全銘柄の分析を実行します。よろしいですか？')) return;
+
+      loading.style.display = 'block';
+      try {
+        const res = await fetch('/analyze-all', {
+          method: 'POST'
+        });
+        if (res.ok) {
+          alert('分析を開始しました');
+        } else {
+          alert('失敗しました');
+        }
+      } catch (err) {
+        alert('エラー: ' + err);
+      } finally {
+        loading.style.display = 'none';
+      }
+    });
+
+    document.getElementById('analyzeStaleBtn').addEventListener('click', async () => {
+      if (!confirm('未更新・価格なしの銘柄のみを再分析します。よろしいですか？')) return;
+
+      loading.style.display = 'block';
+      try {
+        const res = await fetch('/analyze-stale', {
+          method: 'POST'
+        });
+        if (res.ok) {
+          alert('再分析を開始しました');
+        } else {
+          alert('再分析に失敗しました');
+        }
+      } catch (err) {
+        alert('エラー: ' + err);
+      } finally {
+        loading.style.display = 'none';
+      }
+    });
     function runAnalysis(code) {
       fetch(`/run-python?code=${encodeURIComponent(code)}`)
         .then(res => res.text())
@@ -259,7 +296,7 @@
             // 操作列（5列目＝index4）はソートさせない
             {
               orderable: false,
-              targets: 10
+              targets: [0, 10]
             }
           ],
           buttons: [{
