@@ -235,48 +235,54 @@
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
   <script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
   <script>
+    let table; // グローバルに定義しておく
     $(document).ready(function() {
-      $('#stockTable').DataTable({
-        stateSave: true, // ← 検索やページ位置などを保存
-        scrollX: true,
-        dom: 'Bfrtip', // ← ボタンを表示する領域指定
-        language: {
-          url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ja.json'
-        },
-        pageLength: 25,
-        lengthMenu: [5, 10, 25, 50, 100],
-        ordering: true,
-        searching: true,
-        order: [
-          [0, 'desc'],
-          [14, 'desc']
-        ],
-        columnDefs: [
-          // 操作列（5列目＝index4）はソートさせない
-          {
-            orderable: false,
-            targets: 10
-          }
-        ],
-        buttons: [{
-          extend: 'colvis',
-          text: '表示列の選択',
-          collectionLayout: 'fixed two-column'
-        }],
-      });
-      $('#favoriteFilterSwitch').on('change', function() {
-        if (this.checked) {
-          $.fn.dataTable.ext.search.push(favoriteOnlyFilter);
-        } else {
-          $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(f => f !== favoriteOnlyFilter);
-        }
-        table.draw();
-      });
-      function favoriteOnlyFilter(settings, data, dataIndex) {
-        const isChecked = $(table.row(dataIndex).node()).find('input[type="checkbox"]').prop('checked');
-        return isChecked;
+      if ($.fn.dataTable.isDataTable('#stockTable')) {
+        table = $('#stockTable').DataTable(); // 既存のインスタンスを取得
+      } else {
+        table = $('#stockTable').DataTable({
+          stateSave: true, // ← 検索やページ位置などを保存
+          scrollX: true,
+          dom: 'Bfrtip', // ← ボタンを表示する領域指定
+          language: {
+            url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/ja.json'
+          },
+          pageLength: 100,
+          lengthMenu: [5, 10, 25, 50, 100],
+          ordering: true,
+          searching: true,
+          order: [
+            [0, 'desc'],
+            [14, 'desc']
+          ],
+          columnDefs: [
+            // 操作列（5列目＝index4）はソートさせない
+            {
+              orderable: false,
+              targets: 10
+            }
+          ],
+          buttons: [{
+            extend: 'colvis',
+            text: '表示列の選択',
+            collectionLayout: 'fixed two-column'
+          }],
+        })
       }
     });
+    $('#favoriteFilterSwitch').on('change', function() {
+      if (this.checked) {
+        $.fn.dataTable.ext.search.push(favoriteOnlyFilter);
+      } else {
+        $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(f => f !== favoriteOnlyFilter);
+      }
+      table.draw(); // これでOK！
+    });
+
+    function favoriteOnlyFilter(settings, data, dataIndex) {
+      const isChecked = $(table.row(dataIndex).node()).find('input[type="checkbox"]').prop('checked');
+      return isChecked;
+    }
   </script>
 
 </body>
