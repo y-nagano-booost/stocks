@@ -1,14 +1,14 @@
 // app.js（Express の設定ファイルなど）
 const express = require('express');
 const moment = require('moment');
+const { sequelize, Stock } = require('./models/stock');  // 先ほど作成したファイルからインポート
+
 const app = express();
 
 // ビュー全体で moment() が使えるように
 app.locals.moment = moment;
 
 // 他のルート設定、ミドルウェア等…
-const { sequelize, Stock } = require('./models/stock');  // 先ほど作成したファイルからインポート
-
 const port = 3000;
 
 app.use(express.static('public'));
@@ -17,7 +17,6 @@ app.use(express.static('public'));
 sequelize.authenticate()
   .then(() => {
     console.log('Connected to the database.');
-    // Sequelize.sync()は既にmodels/stock.jsで呼び出しているので、改めて不要な場合もあります。
   })
   .catch(err => console.error('Unable to connect to the database:', err));
 
@@ -31,39 +30,9 @@ app.set('views', __dirname + '/views');
 const expressLayouts = require('express-ejs-layouts');
 app.use(expressLayouts);
 app.set('layout', 'layout'); // views/layout.ejs が使われます
-app.get('/stocks', async (req, res) => {
-  try {
-    const stocks = await Stock.findAll();
-    res.render('stocks', { layout: 'layout', stocks, title: `銘柄一覧` }); // ← ここでテンプレートにデータを渡す
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('データ取得エラー');
-  }
-});
-app.get('/stocks/:id', async (req, res) => {
-  try {
-    const stock = await Stock.findByPk(req.params.id);
-    if (!stock) return res.status(404).send('銘柄が見つかりません');
-
-    const [ohlcRows] = await sequelize.query(`
-      SELECT date, open, high, low, close, rsi, ma5, ma25, bb_upper, bb_lower
-      FROM ohlc_data
-      WHERE stock_code = '${stock.code}'
-      ORDER BY date ASC
-    `);
-
-    res.render('stock-detail', {
-      layout: 'layout',
-      stock,
-      title: `${stock.name}のチャート`,
-      ohlcData: ohlcRows // ← これが必要！
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('エラーが発生しました');
-  }
-});
-
+// ルートの分割読み込み
+const stocksRoutes = require('./routes/stocks');
+app.use('/stocks', stocksRoutes);
 
 const { exec } = require("child_process");
 
@@ -153,12 +122,26 @@ app.post('/update-sell-price', async (req, res) => {
     res.status(500).json({ status: 'ERROR', message: err.message });
   }
 });
+app.post('/update-shares', async (req, res) => {
+  const { code, shares } = req.body;
+  if (!code || shares == null) {
+    return res.status(400).json({ status: 'ERROR', message: 'codeとsharesは必須です' });
+  }
+  try {
+    await Stock.update({ shares }, { where: { code } });
+    res.json({ status: 'OK', code, shares });
+  } catch (err) {
+    console.error('[保有株数更新エラー]', err);
+    res.status(500).json({ status: 'ERROR', message: err.message });
+  }
+});
 app.post('/update-favorite', async (req, res) => {
   console.log("受信データ:", req.body);
   const { code, favorite } = req.body;
   try {
     const result = await Stock.update({ favorite }, { where: { code } });
     console.log("更新件数:", result[0]); // ← これ追加してみましょう
+    res.json({ status: 'OK', updated: result[0] });
   } catch (err) {
     console.error('お気に入り更新エラー:', err);
     res.status(500).json({ status: 'ERROR', message: err.message });

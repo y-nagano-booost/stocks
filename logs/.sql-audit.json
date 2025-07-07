@@ -1,0 +1,16 @@
+{
+    "keepSettings": {
+        "type": 2,
+        "amount": 10
+    },
+    "auditFilename": "C:\\express-stock-app\\logs\\.sql-audit.json",
+    "hashType": "md5",
+    "extension": "",
+    "files": [
+        {
+            "date": 1751846098458,
+            "name": "C:\\express-stock-app\\logs\\sql-2025-07-07.log",
+            "hash": "fe40b73145f87c677c915cd08b59e852"
+        }
+    ]
+}

@@ -20,7 +20,10 @@
       <button type="submit" class="btn btn-warning">再分析（未更新のみ）</button>
 
     </form>
-
+    <div class="form-check form-switch mb-2">
+      <input class="form-check-input" type="checkbox" id="favoriteFilterSwitch">
+      <label class="form-check-label" for="favoriteFilterSwitch">お気に入りのみ表示</label>
+    </div>
     <div id="loading" style="display:none;">
       🔄 全銘柄を分析中です…しばらくお待ちください。
     </div>
@@ -55,10 +58,8 @@
         <tbody>
           <% stocks.forEach(stock=> { %>
           <tr>
-            <td>
-              <button class="btn btn-sm" data-code="<%= stock.code %>" onclick="toggleFavorite(this)">
-                <%= stock.favorite ? '★' : '☆' %>
-              </button>
+            <td data-order="<%= stock.favorite ? 1 : 0 %>">
+              <input type="checkbox" <%= stock.favorite ? 'checked' : '' %> onchange="toggleFavorite('<%= stock.code %>', this.checked)">
             </td>
             <td data-order="<%= stock.buy_price %>">
               <input type="number" step="0.01" class="form-control form-control-sm" value="<%= stock.buy_price ?? '' %>" onchange="updateBuyPrice('<%= stock.code %>', this.value)">
@@ -180,7 +181,7 @@
         });
     }
 
-    function updateShares(code, price) {
+    function updateShares(code, shares) {
       fetch('/update-shares', {
           method: 'POST',
           headers: {
@@ -188,7 +189,7 @@
           },
           body: JSON.stringify({
             code,
-            price
+            shares
           })
         })
         .then(res => res.json())
@@ -200,31 +201,25 @@
         });
     }
 
-    function toggleFavorite(button) {
-      const code = button.dataset.code;
-      const isFavorite = button.textContent === '★';
-      const newFavorite = !isFavorite;
-
+    function toggleFavorite(code, isFavorite) {
       fetch('/update-favorite', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            code,
-            favorite: newFavorite
+            code: code,
+            favorite: isFavorite
           })
         })
         .then(res => res.json())
-        .then(data => {
-          // 表示切り替え
-          button.textContent = newFavorite ? '★' : '☆';
-
-          // イベントハンドラ更新（次回の反転対応）
-          button.onclick = () => toggleFavorite(button);
+        .then(msg => {
+          console.log('お気に入り更新:', msg);
         })
-        .catch(err => alert("更新エラー: " + err));
-    }
+        .catch(err => {
+          alert("お気に入り更新エラー: " + err);
+        })
+    };
   </script>
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -253,7 +248,8 @@
         ordering: true,
         searching: true,
         order: [
-          [11, 'desc']
+          [0, 'desc'],
+          [14, 'desc']
         ],
         columnDefs: [
           // 操作列（5列目＝index4）はソートさせない
@@ -268,6 +264,18 @@
           collectionLayout: 'fixed two-column'
         }],
       });
+      $('#favoriteFilterSwitch').on('change', function() {
+        if (this.checked) {
+          $.fn.dataTable.ext.search.push(favoriteOnlyFilter);
+        } else {
+          $.fn.dataTable.ext.search = $.fn.dataTable.ext.search.filter(f => f !== favoriteOnlyFilter);
+        }
+        table.draw();
+      });
+      function favoriteOnlyFilter(settings, data, dataIndex) {
+        const isChecked = $(table.row(dataIndex).node()).find('input[type="checkbox"]').prop('checked');
+        return isChecked;
+      }
     });
   </script>
 

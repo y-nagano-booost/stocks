@@ -3,15 +3,42 @@
 const { Sequelize, DataTypes } = require('sequelize');
 
 // Sequelizeインスタンスを作成します。
-// 第一引数: データベース名
-// 第二引数: ユーザー名
-// 第三引数: パスワード
-// host, dialect は環境に合わせて調整してください。
+const fsr = require('file-stream-rotator');
+const path = require('path');
+const logDirectory = path.join(__dirname, '../logs');
+
+const sqlLogStream = fsr.getStream({
+  filename: path.join(logDirectory, 'sql-%DATE%.log'),
+  frequency: 'daily',
+  date_format: 'YYYY-MM-DD',
+  audit_file: path.join(logDirectory, '.sql-audit.json'),
+});
+
+// Sequelizeインスタンス
 const sequelize = new Sequelize('mydb', 'app_user', 'your_password', {
   host: 'localhost',
   dialect: 'mysql',
-  logging: false  // SQLログを見たい場合は console.log に変更
-});
+  benchmark: true, // 実行時間も計測
+  logging: (sql, queryObject) => {
+    const normalized = sql.trim().toLowerCase();
+    if (
+      normalized.startsWith('select') ||
+      normalized.startsWith('show') ||
+      normalized.startsWith('describe') ||
+      normalized.startsWith('explain')
+    ) {
+      return; // ← 閲覧系クエリはログに書かない
+    }
+    if (queryObject && queryObject.bind) {
+        const boundSql = sql.replace(/\?/g, () => {
+            const val = queryObject.bind.shift(); // クエリバインド値を順に適用
+            return typeof val === 'string' ? `'${val}'` : val;
+        });
+        sqlLogStream.write(`[SQL]: ${boundSql}` + '\n');
+    } else {
+        sqlLogStream.write(`[SQL]: ${sql}` + '\n');
+    }
+  }})
 
 // Stockモデル定義
 const Stock = sequelize.define('Stock', {
